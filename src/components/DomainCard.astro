@@ -1,0 +1,112 @@
+---
+import type { Domain } from '@data/domains';
+import { path } from '@utils/url';
+
+interface Props {
+  domain: Domain;
+  number: number;
+}
+const { domain, number } = Astro.props;
+const topicCount = domain.topics.length;
+---
+<a class="domain-card" href={path(`/${domain.slug}/`)}>
+  <div class="card-head">
+    <span class="card-number">{String(number).padStart(2, '0')}</span>
+    <span class="card-meta">{topicCount} topic{topicCount === 1 ? '' : 's'}</span>
+  </div>
+  <h3 class="card-title">{domain.title}</h3>
+  <p class="card-tagline">{domain.tagline}</p>
+  <p class="card-description">{domain.description}</p>
+  <span class="card-cta">
+    Enter domain
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="5" y1="12" x2="19" y2="12"/>
+      <polyline points="12 5 19 12 12 19"/>
+    </svg>
+  </span>
+</a>
+
+<style>
+  .domain-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-6);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: hsl(var(--card-foreground));
+    transition: border-color var(--t-base), background var(--t-base);
+  }
+  .domain-card:hover {
+    border-color: hsl(var(--primary));
+    text-decoration: none;
+  }
+
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: hsl(var(--muted-foreground) / 0.75);
+    margin-bottom: var(--sp-1);
+  }
+  .card-number {
+    font-family: var(--font-headline);
+    font-size: var(--fs-3xl);
+    font-weight: 700;
+    color: hsl(var(--primary));
+    letter-spacing: -0.02em;
+    text-transform: none;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .card-meta {
+    font-weight: 600;
+  }
+
+  .card-title {
+    font-family: var(--font-headline);
+    font-size: var(--fs-2xl);
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    color: hsl(var(--foreground));
+  }
+  .card-tagline {
+    color: hsl(var(--muted-foreground));
+    font-style: italic;
+    font-family: var(--font-headline);
+    margin: 0;
+    font-size: var(--fs-base);
+    line-height: 1.45;
+  }
+  .card-description {
+    color: hsl(var(--muted-foreground));
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .card-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-top: var(--sp-2);
+    color: hsl(var(--primary));
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+  }
+  .card-cta svg {
+    transition: transform var(--t-fast);
+  }
+  .domain-card:hover .card-cta svg {
+    transform: translateX(3px);
+  }
+</style>

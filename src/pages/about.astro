@@ -1,0 +1,44 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+---
+<BaseLayout title="About">
+  <article class="container about prose">
+    <p class="eyebrow">About</p>
+    <h1>Why "Hormesis"?</h1>
+    <p class="lead">
+      Hormesis is the biological principle that controlled, repeated stressors
+      produce stronger adaptation than no stress at all. A small dose makes
+      the system more resilient over time.
+    </p>
+    <p>
+      This site is the engineering version of that idea. Each topic is a small,
+      focused study session — a controlled dose of complexity. The compound
+      effect, accumulated over months, is the gap between mid- and
+      senior-level.
+    </p>
+    <h2>How the site is organized</h2>
+    <p>
+      The 13 domains are grouped into four tiers, in roughly the order I would
+      recommend learning them:
+    </p>
+    <ol>
+      <li><strong>Foundations</strong> — the non-negotiable base layer.</li>
+      <li><strong>Core engineering</strong> — building production data systems.</li>
+      <li><strong>Platforms</strong> — the clouds and lakehouses where everything runs.</li>
+      <li><strong>Production &amp; senior craft</strong> — the work that separates seniors from strong mid-levels.</li>
+    </ol>
+    <h2>Conventions</h2>
+    <ul>
+      <li>Each topic has the same skeleton — <em>Overview</em>, <em>Core concepts</em>, <em>Practical patterns</em>, <em>Case studies</em>, <em>References</em>.</li>
+      <li>Topics begin as stubs and are filled in over time.</li>
+      <li>Case studies live inside each domain rather than in a separate section.</li>
+    </ul>
+  </article>
+</BaseLayout>
+
+<style>
+  .about {
+    padding: var(--sp-12) 0 var(--sp-16);
+    max-width: var(--content-width);
+  }
+</style>

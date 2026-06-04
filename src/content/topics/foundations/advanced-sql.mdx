@@ -1,0 +1,356 @@
+---
+title: "Advanced SQL"
+domain: "foundations"
+summary: "Window functions, CTEs, recursive queries, set operations, and reading query plans — the bar a senior DE clears in their sleep."
+status: draft
+updated: 2026-06-04
+---
+
+## Overview
+
+SQL is having a renaissance. Warehouses (Snowflake, BigQuery, Redshift) and the dbt/analytics-engineering wave have pushed transformation logic back into SQL, and the engine implementations have caught up — modern optimizers handle queries that would have been hand-tuned imperative code a decade ago.
+
+For a senior data engineer, "knowing SQL" is no longer about joins and `GROUP BY`. The bar is:
+
+- Reaching for **window functions** by reflex when the problem involves "per group, per row" semantics.
+- Using **CTEs** to make complex queries readable without paying a performance tax.
+- Knowing when **recursive CTEs** are the right tool (and the small set of times they actually are).
+- Reading a **query plan** well enough to predict why a query will be slow before running it.
+
+This page covers the patterns that compose 80% of the analytical SQL you will write.
+
+<div class="callout">
+  <strong>Test of seniority:</strong> could you, in front of a junior engineer, write a query that returns the 3 most recent orders per customer, explain why a window function is the right tool, and predict roughly what its query plan will look like? If the answer is "kind of," this page is for you.
+</div>
+
+## Window functions
+
+Window functions are the single biggest leverage point in modern analytical SQL. The mental model is simple once it clicks:
+
+> A window function is an aggregate that **does not collapse rows**. It computes a value over a logical "window" of rows defined by `PARTITION BY` and `ORDER BY`, but the result is attached to each row of the original output.
+
+### The anatomy
+
+```sql
+SELECT
+  customer_id,
+  order_date,
+  amount,
+  SUM(amount) OVER (
+    PARTITION BY customer_id            -- the "group"
+    ORDER BY order_date                 -- the order within the group
+    ROWS BETWEEN UNBOUNDED PRECEDING    -- the frame
+             AND CURRENT ROW
+  ) AS running_total
+FROM orders;
+```
+
+Read the `OVER` clause as: *compute this aggregate, partitioned this way, ordered this way, looking at these rows.*
+
+### The function families
+
+There are three flavors and you reach for each for different jobs:
+
+- **Aggregates as windows** — `SUM`, `AVG`, `COUNT`, `MIN`, `MAX` with `OVER (...)`. Use for running totals, moving averages, percent-of-group, comparing a row to its group average.
+- **Ranking** — `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `NTILE(n)`, `PERCENT_RANK()`. Use for top-N per group, deduplication, bucketing.
+- **Value access** — `LAG(col, n)`, `LEAD(col, n)`, `FIRST_VALUE(col)`, `LAST_VALUE(col)`, `NTH_VALUE(col, n)`. Use for "compared to the previous row," sessionization, gap detection.
+
+### Frame clauses — the part most people skip
+
+The frame is the subset of the partition that the function actually sees. Default behavior depends on whether you supplied an `ORDER BY`:
+
+- With `ORDER BY` and no explicit frame → `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` (everything up to and including the current row, ties included).
+- Without `ORDER BY` → `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` (the whole partition).
+
+`ROWS` counts physical rows; `RANGE` is value-based and includes ties. Almost every running-window bug I have seen comes from a developer assuming `ROWS` semantics when the engine defaulted to `RANGE`.
+
+```sql
+-- 7-day moving average using ROWS (physical rows, no ties)
+AVG(amount) OVER (
+  PARTITION BY user_id
+  ORDER BY event_date
+  ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+)
+```
+
+### Worked example — top-3 most recent orders per customer
+
+This is the canonical interview problem and a real recurring pattern:
+
+```sql
+WITH ranked AS (
+  SELECT
+    customer_id,
+    order_id,
+    order_date,
+    amount,
+    ROW_NUMBER() OVER (
+      PARTITION BY customer_id
+      ORDER BY order_date DESC, order_id DESC
+    ) AS rn
+  FROM orders
+)
+SELECT customer_id, order_id, order_date, amount
+FROM ranked
+WHERE rn <= 3;
+```
+
+Two senior-level notes on this:
+
+1. The tiebreaker (`order_id DESC`) matters. Without it, ties in `order_date` produce non-deterministic results across runs — a class of bug that surfaces three months later in a reconciliation report.
+2. `ROW_NUMBER` vs `RANK` vs `DENSE_RANK` give different answers when there are ties — pick deliberately.
+
+## Common Table Expressions (CTEs)
+
+A CTE is a named subquery introduced with `WITH`. They exist to make complex queries readable:
+
+```sql
+WITH
+  daily_revenue AS (
+    SELECT date_trunc('day', order_ts) AS day, SUM(amount) AS revenue
+    FROM orders
+    GROUP BY 1
+  ),
+  rolling_7d AS (
+    SELECT
+      day,
+      revenue,
+      AVG(revenue) OVER (ORDER BY day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS revenue_7d
+    FROM daily_revenue
+  )
+SELECT * FROM rolling_7d WHERE day >= current_date - 30;
+```
+
+Two things to know that separate mid- from senior-level:
+
+- **Modern engines inline CTEs by default.** In Postgres 12+, Snowflake, BigQuery, and Spark SQL, a non-recursive CTE is treated as a hint to the optimizer, not an optimization fence. Older Postgres (≤ 11) materialized them, which sometimes helped and sometimes hurt. Knowing your engine's behavior is part of the job.
+- **CTEs are evaluated structurally per reference.** If you reference the same CTE three times, most engines will recompute it three times. If the CTE is expensive, materialize it explicitly (temp table, `MATERIALIZED` keyword in Postgres, or a dbt incremental model).
+
+CTEs vs subqueries vs temp tables — the simple decision tree:
+
+- **Subquery** — used once, inline, small.
+- **CTE** — used once or twice, want it named for readability.
+- **Temp table / materialized CTE** — used multiple times, expensive to compute, or you want stable row counts for query planning.
+
+## Recursive CTEs
+
+A recursive CTE references itself. The shape is always the same:
+
+```sql
+WITH RECURSIVE org_chart AS (
+  -- anchor: the rows that start the recursion
+  SELECT employee_id, manager_id, full_name, 1 AS level
+  FROM employees
+  WHERE manager_id IS NULL
+
+  UNION ALL
+
+  -- recursive member: rows derived from the previous iteration
+  SELECT e.employee_id, e.manager_id, e.full_name, oc.level + 1
+  FROM employees e
+  JOIN org_chart oc ON e.manager_id = oc.employee_id
+)
+SELECT * FROM org_chart ORDER BY level, full_name;
+```
+
+The pattern: an anchor produces the seed rows, the recursive member produces the next level by joining against the previous iteration, and the engine continues until no new rows are produced.
+
+**When recursive CTEs are right:**
+
+- Hierarchy traversal (org charts, comment threads, category trees).
+- Graph problems with bounded depth (friend-of-friend, dependency unrolling).
+- Generating sequences (date spines, number series, calendar fills).
+
+**When they are wrong:**
+
+- Anything that fits in a window function (which is faster and clearer).
+- Unbounded graph problems on big graphs — you will blow up memory or hit the engine's recursion limit. Use a real graph DB or process iteratively in application code.
+
+<div class="callout callout-warning">
+  Always reason about termination. A recursive CTE without a base case or a join condition that excludes already-visited rows will loop until it hits the engine's max recursion depth (Postgres default: 100; Snowflake: configurable). Use a depth column and cap it as a safety net.
+</div>
+
+## Set operations
+
+Four operators, all standard SQL:
+
+| Operator | What it does |
+|---|---|
+| `UNION` | Combines two result sets and **removes duplicates**. |
+| `UNION ALL` | Combines two result sets and **keeps duplicates** (cheap — no dedupe). |
+| `INTERSECT` | Rows that appear in both (duplicates removed). |
+| `EXCEPT` (or `MINUS` on Oracle) | Rows in the left set but not the right (duplicates removed). |
+
+The rule for ETL code: **use `UNION ALL` unless you specifically need deduplication.** `UNION` does a sort or hash to dedupe; on large datasets this is a silent performance disaster.
+
+The columns must be the same number and compatible types. Implicit casts vary across engines — be explicit:
+
+```sql
+SELECT id, name, 'gold'   AS tier FROM gold_customers
+UNION ALL
+SELECT id, name, 'silver' AS tier FROM silver_customers;
+```
+
+## Reading query plans
+
+`EXPLAIN` shows the plan the optimizer chose. `EXPLAIN ANALYZE` runs the query and shows actual rows and timings alongside estimates.
+
+A plan is a tree of operators executed bottom-up:
+
+```text
+HashJoin (cost=120..1340 rows=10000)
+  ├── SeqScan on orders     (cost=0..500 rows=50000)
+  └── HashScan on customers (cost=12..30  rows=2000)
+```
+
+The operators you will see most often:
+
+- **Seq Scan / Full Table Scan** — read the whole table. Fine on small tables; a red flag on big ones with a selective filter.
+- **Index Scan / Index Only Scan** — read via an index. Cheap when selective; expensive when not.
+- **Hash Join** — build a hash table on one side, probe with the other. Default for large equi-joins.
+- **Merge Join** — both sides sorted, walked in lockstep. Cheap when inputs are already sorted (e.g., from an index).
+- **Nested Loop** — for each row on the outer side, scan the inner. Fast when outer is tiny; deadly otherwise.
+- **Sort, Hash Aggregate, Group Aggregate** — what they sound like.
+
+The signals to look for, in order of impact:
+
+1. **Cardinality misestimates.** "Estimated 10 rows, actual 10 million" means the optimizer chose its plan with bad statistics. Run `ANALYZE` / `VACUUM ANALYZE`.
+2. **Sequential scans on big tables with selective filters.** Missing index, or the existing one is not usable for this predicate.
+3. **Spills to disk.** Operators like sort and hash aggregate spill when they exceed working memory. The plan often shows `disk` or `external merge`.
+4. **Nested loops with large outer inputs.** The cost is multiplicative — death by inner iterations.
+
+<div class="callout callout-note">
+  Different engines display plans differently. Snowflake has a graphical query profile, BigQuery shows execution graphs in the UI, Spark exposes the physical plan via <code>df.explain(True)</code> and the Spark UI. The mental model is the same; the rendering differs.
+</div>
+
+## Practical patterns
+
+Three patterns that come up constantly:
+
+### Gaps and islands
+
+Given a sequence of events per user, find runs of consecutive events (islands) and the gaps between them. The classic technique: subtract a `ROW_NUMBER` from a date — consecutive dates share the same difference.
+
+```sql
+WITH grouped AS (
+  SELECT
+    user_id,
+    event_date,
+    event_date
+      - INTERVAL '1 day' * ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY event_date)
+      AS island_key
+  FROM logins
+)
+SELECT
+  user_id,
+  MIN(event_date) AS island_start,
+  MAX(event_date) AS island_end,
+  COUNT(*)        AS streak_days
+FROM grouped
+GROUP BY user_id, island_key
+ORDER BY user_id, island_start;
+```
+
+### Sessionization
+
+Group events into sessions where consecutive events are at most N minutes apart:
+
+```sql
+WITH gaps AS (
+  SELECT
+    user_id,
+    event_ts,
+    CASE
+      WHEN event_ts - LAG(event_ts) OVER (PARTITION BY user_id ORDER BY event_ts)
+           > INTERVAL '30 minutes'
+      THEN 1 ELSE 0
+    END AS new_session
+  FROM events
+),
+sessions AS (
+  SELECT
+    user_id,
+    event_ts,
+    SUM(new_session) OVER (PARTITION BY user_id ORDER BY event_ts) AS session_id
+  FROM gaps
+)
+SELECT user_id, session_id, MIN(event_ts) AS started_at, MAX(event_ts) AS ended_at
+FROM sessions
+GROUP BY user_id, session_id;
+```
+
+### Top-N per group, with ties
+
+When you want the top per group *including* ties, `RANK` is right; when you want exactly N rows regardless, `ROW_NUMBER`:
+
+```sql
+-- Top 3 highest spenders per region, including ties at rank 3
+SELECT *
+FROM (
+  SELECT *, RANK() OVER (PARTITION BY region ORDER BY total_spend DESC) AS r
+  FROM customer_lifetime_value
+) t
+WHERE r <= 3;
+```
+
+## Case study — weekly cohort retention
+
+You have an `events` table with `user_id, event_ts`. You want, for each cohort (signup week), the percentage of users still active at week 1, 2, 4, 8.
+
+The key insight: this is **two window/CTE problems composed**:
+
+1. Compute each user's cohort week and the set of weeks they were active.
+2. For each (cohort week, active week), count distinct users and divide by the cohort size.
+
+```sql
+WITH user_events AS (
+  SELECT
+    user_id,
+    DATE_TRUNC('week', MIN(event_ts) OVER (PARTITION BY user_id)) AS cohort_week,
+    DATE_TRUNC('week', event_ts) AS active_week
+  FROM events
+),
+distinct_user_weeks AS (
+  SELECT DISTINCT user_id, cohort_week, active_week
+  FROM user_events
+),
+cohort_sizes AS (
+  SELECT cohort_week, COUNT(DISTINCT user_id) AS cohort_size
+  FROM distinct_user_weeks
+  GROUP BY cohort_week
+),
+retention AS (
+  SELECT
+    d.cohort_week,
+    DATE_DIFF('week', d.cohort_week, d.active_week) AS week_offset,
+    COUNT(DISTINCT d.user_id) AS active_users
+  FROM distinct_user_weeks d
+  GROUP BY 1, 2
+)
+SELECT
+  r.cohort_week,
+  r.week_offset,
+  r.active_users,
+  cs.cohort_size,
+  ROUND(100.0 * r.active_users / cs.cohort_size, 1) AS retention_pct
+FROM retention r
+JOIN cohort_sizes cs USING (cohort_week)
+WHERE r.week_offset IN (0, 1, 2, 4, 8)
+ORDER BY r.cohort_week, r.week_offset;
+```
+
+A senior engineer reading this query is checking three things:
+
+- **Determinism** — is the cohort week stable if events arrive late? Here yes, because we use the *minimum* event per user.
+- **Performance** — how many rows pass through each CTE? `distinct_user_weeks` is the bottleneck on big tables — bucket and pre-aggregate upstream if possible.
+- **Edge cases** — users with no activity after signup, weeks with no signups, daylight-saving boundaries.
+
+That last bullet — *what could be wrong with this answer?* — is what makes a query senior-level, not the SQL itself.
+
+## References
+
+- *SQL for Data Analysis* by Cathy Tanimura (O'Reilly) — practical, modern, warehouse-flavored.
+- *SQL Antipatterns* by Bill Karwin — the book that names the mistakes you have been making.
+- *Use the Index, Luke!* by Markus Winand — indexing and query plans, free online.
+- Your engine's documentation on `EXPLAIN` output. Read it once, refer back to it forever.
+- The Mode SQL tutorial (free) for window-function fundamentals if you want to drill the basics.

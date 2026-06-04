@@ -1,0 +1,75 @@
+---
+import type { Domain, Topic } from '@data/domains';
+import { path } from '@utils/url';
+
+interface Props {
+  prev?: { domain: Domain; topic: Topic };
+  next?: { domain: Domain; topic: Topic };
+}
+const { prev, next } = Astro.props;
+---
+{(prev || next) && (
+  <nav class="prev-next" aria-label="Topic navigation">
+    {prev ? (
+      <a class="pn pn-prev" href={path(`/${prev.domain.slug}/${prev.topic.slug}/`)}>
+        <span class="pn-label">← Previous</span>
+        <span class="pn-title">{prev.topic.title}</span>
+      </a>
+    ) : <span class="pn pn-empty" aria-hidden="true"></span>}
+    {next ? (
+      <a class="pn pn-next" href={path(`/${next.domain.slug}/${next.topic.slug}/`)}>
+        <span class="pn-label">Next →</span>
+        <span class="pn-title">{next.topic.title}</span>
+      </a>
+    ) : <span class="pn pn-empty" aria-hidden="true"></span>}
+  </nav>
+)}
+
+<style>
+  .prev-next {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-4);
+    margin-top: var(--sp-12);
+    padding-top: var(--sp-6);
+    border-top: 1px solid hsl(var(--border));
+  }
+  .pn {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    padding: var(--sp-4) var(--sp-5);
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--card));
+    transition: border-color var(--t-fast), color var(--t-fast);
+  }
+  .pn:hover {
+    border-color: hsl(var(--primary));
+    color: hsl(var(--foreground));
+    text-decoration: none;
+  }
+  .pn-empty { background: transparent; border-color: transparent; }
+  .pn-next { text-align: right; }
+  .pn-label {
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: hsl(var(--muted-foreground) / 0.75);
+    font-weight: 600;
+  }
+  .pn-title {
+    font-family: var(--font-headline);
+    font-size: var(--fs-lg);
+    color: hsl(var(--foreground));
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  @media (max-width: 640px) {
+    .prev-next { grid-template-columns: 1fr; }
+    .pn-next { text-align: left; }
+  }
+</style>

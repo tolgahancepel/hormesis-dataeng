@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:claudecertificationguide.com)",
+      "WebSearch",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(node scripts/generate-stubs.mjs)",
+      "Bash(npm run *)",
+      "Bash(curl *)",
+      "Bash(grep -oE '--[a-z0-9-]+:[^;}]+' /tmp/ccg-2.css)"
+    ]
+  }
+}

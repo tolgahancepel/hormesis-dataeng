@@ -1,0 +1,52 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Sidebar from '@components/Sidebar.astro';
+import Breadcrumbs from '@components/Breadcrumbs.astro';
+import { path } from '@utils/url';
+import type { Domain } from '@data/domains';
+
+interface Props {
+  domain: Domain;
+  title: string;
+  description?: string;
+  currentTopic?: string;
+  breadcrumbs?: { label: string; href?: string }[];
+}
+const { domain, title, description, currentTopic, breadcrumbs } = Astro.props;
+const crumbs = breadcrumbs ?? [
+  { label: 'Curriculum', href: path('/') },
+  { label: domain.title },
+];
+---
+<BaseLayout title={title} description={description}>
+  <div class="domain-shell">
+    <Sidebar domain={domain} currentTopic={currentTopic} />
+    <div class="domain-main">
+      <div class="domain-container">
+        <Breadcrumbs items={crumbs} />
+        <slot />
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .domain-shell {
+    display: flex;
+    align-items: stretch;
+    min-height: calc(100vh - 64px);
+  }
+  .domain-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .domain-container {
+    max-width: var(--article-width);
+    margin: 0 auto;
+    padding: var(--sp-8) var(--sp-8) var(--sp-16);
+  }
+  @media (max-width: 900px) {
+    .domain-shell { flex-direction: column; }
+    .domain-container { padding: var(--sp-6) var(--sp-4) var(--sp-12); }
+  }
+</style>

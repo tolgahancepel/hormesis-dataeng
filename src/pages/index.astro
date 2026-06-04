@@ -1,0 +1,77 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import DomainCard from '@components/DomainCard.astro';
+import { domainsByTier, tiers } from '@data/domains';
+
+const byTier = domainsByTier();
+
+let counter = 0;
+const numbered = new Map<string, number>();
+([1, 2, 3, 4] as const).forEach((t) => {
+  for (const d of byTier[t]) {
+    counter += 1;
+    numbered.set(d.slug, counter);
+  }
+});
+---
+<BaseLayout title="Hormesis">
+  <section class="container syllabus">
+    {([1, 2, 3, 4] as const).map((tier) => (
+      <section class="tier" aria-labelledby={`tier-${tier}`}>
+        <header class="tier-head">
+          <p class="tier-num">Tier {tier}</p>
+          <h2 id={`tier-${tier}`}>{tiers[tier].label}</h2>
+          <p class="tier-blurb">{tiers[tier].blurb}</p>
+        </header>
+        <div class="domain-grid">
+          {byTier[tier].map((d) => (
+            <DomainCard domain={d} number={numbered.get(d.slug)!} />
+          ))}
+        </div>
+      </section>
+    ))}
+  </section>
+</BaseLayout>
+
+<style>
+  .syllabus {
+    padding: var(--sp-12) 0 var(--sp-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-16);
+  }
+  .tier-head {
+    margin-bottom: var(--sp-6);
+    padding-bottom: var(--sp-3);
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .tier-num {
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: hsl(var(--primary));
+    font-weight: 700;
+    margin: 0 0 var(--sp-2);
+  }
+  .tier-head h2 {
+    font-family: var(--font-headline);
+    font-size: var(--fs-3xl);
+    font-weight: 700;
+    margin: 0 0 var(--sp-2);
+    letter-spacing: -0.02em;
+  }
+  .tier-blurb {
+    color: hsl(var(--muted-foreground));
+    font-family: var(--font-headline);
+    font-style: italic;
+    font-size: var(--fs-lg);
+    margin: 0;
+    line-height: 1.45;
+  }
+  .domain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--sp-4);
+  }
+</style>

@@ -1,0 +1,19 @@
+{
+  "name": "hormesis",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal data engineering knowledge base — mid to senior level-up",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^6.0.2",
+    "@astrojs/sitemap": "^3.7.3",
+    "astro": "^6.4.4"
+  }
+}

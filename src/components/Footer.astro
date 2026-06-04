@@ -1,0 +1,55 @@
+---
+import { totalTopics, domains } from '@data/domains';
+const topics = totalTopics();
+const domainCount = domains.length;
+const year = new Date().getFullYear();
+---
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-meta">
+      <p class="footer-brand">Hormesis</p>
+      <p class="footer-tagline">A personal data-engineering study site.</p>
+    </div>
+    <div class="footer-stats">
+      <span>{domainCount} domains</span>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>{topics} topics</span>
+    </div>
+    <p class="footer-copy">© {year}</p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid hsl(var(--border));
+    margin-top: var(--sp-24);
+    padding: var(--sp-10) 0 var(--sp-12);
+    color: hsl(var(--muted-foreground));
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+  }
+  .footer-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-6);
+  }
+  .footer-brand {
+    font-family: var(--font-headline);
+    font-weight: 700;
+    color: hsl(var(--foreground));
+    font-size: var(--fs-lg);
+    margin: 0 0 var(--sp-1) 0;
+    letter-spacing: -0.01em;
+  }
+  .footer-tagline { margin: 0; }
+  .footer-stats {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .footer-stats .dot { color: hsl(var(--muted-foreground) / 0.5); }
+  .footer-copy { margin: 0; color: hsl(var(--muted-foreground) / 0.7); }
+</style>

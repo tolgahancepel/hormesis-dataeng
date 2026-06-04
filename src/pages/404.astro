@@ -1,0 +1,21 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { path } from '@utils/url';
+---
+<BaseLayout title="Not found">
+  <section class="container notfound">
+    <p class="eyebrow">404</p>
+    <h1>This topic does not exist (yet).</h1>
+    <p class="lead">
+      Either it's still on the syllabus and not written, or the link is wrong.
+    </p>
+    <p><a href={path('/')}>← Back to domains</a></p>
+  </section>
+</BaseLayout>
+
+<style>
+  .notfound {
+    padding: var(--sp-20) 0;
+    max-width: 60ch;
+  }
+</style>

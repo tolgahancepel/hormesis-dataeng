@@ -1,0 +1,88 @@
+---
+import ThemeToggle from './ThemeToggle.astro';
+import { path } from '@utils/url';
+
+const normalize = (s: string) => s.replace(/\/+$/, '') || '/';
+const isHome = normalize(Astro.url.pathname) === normalize(path('/'));
+---
+<header class="site-header">
+  <div class="header-inner">
+    <a href={path('/')} class="brand" aria-label="Hormesis — home">
+      <span class="brand-name">Hormesis</span>
+    </a>
+
+    <nav class="site-nav" aria-label="Primary">
+      <a href={path('/')} class={isHome ? 'active' : ''}>Curriculum</a>
+      <a href={path('/about/')}>About</a>
+    </nav>
+
+    <div class="header-actions">
+      <ThemeToggle />
+    </div>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: hsl(var(--background) / 0.85);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-8);
+    height: 64px;
+    padding: 0 var(--sp-6);
+  }
+  .header-actions { margin-left: auto; }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    color: hsl(var(--foreground));
+    text-decoration: none;
+  }
+  .brand:hover { color: hsl(var(--primary)); text-decoration: none; }
+  .brand-name {
+    font-family: var(--font-headline);
+    font-weight: 700;
+    font-size: var(--fs-xl);
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .site-nav {
+    display: flex;
+    gap: var(--sp-6);
+  }
+  .site-nav a {
+    color: hsl(var(--muted-foreground));
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    text-decoration: none;
+    padding: var(--sp-1) 0;
+    border-bottom: 1px solid transparent;
+    transition: color var(--t-fast), border-color var(--t-fast);
+  }
+  .site-nav a:hover {
+    color: hsl(var(--foreground));
+    text-decoration: none;
+  }
+  .site-nav a.active {
+    color: hsl(var(--foreground));
+    border-bottom-color: hsl(var(--primary));
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+  }
+  @media (max-width: 640px) {
+    .site-nav { gap: var(--sp-4); }
+    .brand-name { font-size: var(--fs-lg); }
+  }
+</style>

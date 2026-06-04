@@ -1,0 +1,257 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Sidebar from '@components/Sidebar.astro';
+import Breadcrumbs from '@components/Breadcrumbs.astro';
+import PrevNext from '@components/PrevNext.astro';
+import { path } from '@utils/url';
+import type { Domain, Topic } from '@data/domains';
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  domain: Domain;
+  topic: Topic;
+  headings: MarkdownHeading[];
+  prev?: { domain: Domain; topic: Topic };
+  next?: { domain: Domain; topic: Topic };
+  status?: 'stub' | 'draft' | 'complete';
+}
+const { domain, topic, prev, next, status = 'stub' } = Astro.props;
+---
+<BaseLayout title={topic.title} description={topic.summary}>
+  <div class="topic-shell">
+    <Sidebar domain={domain} currentTopic={topic.slug} />
+    <div class="topic-main">
+      <div class="topic-container">
+        <article class="topic-article">
+          <Breadcrumbs
+            items={[
+              { label: 'Curriculum', href: path('/') },
+              { label: domain.title, href: path(`/${domain.slug}/`) },
+              { label: topic.title },
+            ]}
+          />
+          <header class="topic-header">
+            <h1>{topic.title}</h1>
+            <p class="lead">{topic.summary}</p>
+            {status === 'stub' && (
+              <p class="status-stub">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>
+                Stub · notes will accumulate
+              </p>
+            )}
+          </header>
+          <div class="topic-body">
+            <slot />
+          </div>
+          <PrevNext prev={prev} next={next} />
+        </article>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .topic-shell {
+    display: flex;
+    align-items: stretch;
+    min-height: calc(100vh - 64px);
+  }
+  .topic-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .topic-container {
+    max-width: var(--article-width);   /* 56rem / 896px */
+    margin: 0 auto;
+    padding: var(--sp-8) var(--sp-8);
+  }
+
+  /* ── article header (h1 + lead) ─────────────────────── */
+  .topic-header {
+    margin-bottom: var(--sp-8);
+    padding-bottom: var(--sp-4);
+    border-bottom: 1px solid hsl(var(--border) / 0.4);
+  }
+  .topic-article :global(.breadcrumbs) {
+    margin-bottom: var(--sp-6);
+  }
+  .topic-header h1 {
+    font-family: var(--font-headline);
+    font-size: clamp(2.25rem, 5vw, 3rem);   /* text-4xl md:text-5xl */
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    margin: 0 0 var(--sp-4);
+    color: hsl(var(--foreground));
+  }
+  .topic-header .lead {
+    font-family: var(--font-headline);
+    font-size: 1.125rem;                   /* text-lg */
+    line-height: 1.55;
+    color: hsl(var(--muted-foreground));
+    margin: 0;
+    font-weight: 400;
+  }
+  .status-stub {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin: var(--sp-4) 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;                   /* 10px — matches text-[10px] */
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: hsl(var(--primary));
+    font-weight: 700;
+  }
+  .status-stub svg { color: hsl(var(--primary)); }
+
+  /* ============================================================
+     article body — typography mirrors the reference page exactly
+     (text-sm / 14px body, leading-relaxed / 1.625, mt-10 mb-4 etc.)
+     ============================================================ */
+  .topic-body {
+    font-size: 0.875rem;                   /* text-sm */
+    line-height: 1.625;                    /* leading-relaxed */
+    color: hsl(var(--foreground));
+  }
+
+  .topic-body :global(p) {
+    font-size: 0.875rem;
+    line-height: 1.625;
+    margin: 0 0 1rem 0;                    /* mb-4 */
+  }
+
+  .topic-body :global(h2) {
+    font-family: var(--font-headline);
+    font-size: 1.5rem;                     /* text-2xl */
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    margin: 2.5rem 0 1rem 0;               /* mt-10 mb-4 */
+    border-bottom: 0;
+    padding-bottom: 0;
+    scroll-margin-top: 80px;
+    color: hsl(var(--foreground));
+  }
+
+  .topic-body :global(h3) {
+    font-family: var(--font-headline);
+    font-size: 1.25rem;                    /* text-xl */
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 2rem 0 0.75rem 0;              /* mt-8 mb-3 */
+    scroll-margin-top: 80px;
+    color: hsl(var(--foreground));
+  }
+
+  .topic-body :global(h4) {
+    font-family: var(--font-headline);
+    font-size: 1.125rem;                   /* text-lg */
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 1.5rem 0 0.5rem 0;
+    scroll-margin-top: 80px;
+    color: hsl(var(--foreground));
+  }
+
+  .topic-body :global(ul),
+  .topic-body :global(ol) {
+    font-size: 0.875rem;
+    margin: 1rem 0;                        /* my-4 */
+    padding-left: 1.5rem;                  /* ml-6 */
+    line-height: 1.625;
+  }
+  .topic-body :global(ul) { list-style: disc; }
+  .topic-body :global(ol) { list-style: decimal; }
+  .topic-body :global(li) {
+    margin: 0 0 0.25rem 0;                 /* space-y-1 */
+  }
+  .topic-body :global(li::marker) {
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  .topic-body :global(a) {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+  .topic-body :global(a:hover) {
+    color: hsl(var(--tertiary));
+  }
+
+  .topic-body :global(strong) {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  .topic-body :global(blockquote) {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    border-left: 3px solid hsl(var(--primary));
+    background: hsl(var(--surface-lowest));
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 0.875rem;
+    color: hsl(var(--muted-foreground));
+  }
+  .topic-body :global(blockquote p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .topic-body :global(:not(pre) > code) {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    background: hsl(var(--muted));
+    padding: 0.1em 0.4em;
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+  }
+
+  .topic-body :global(pre) {
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: hsl(var(--surface-lowest));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    overflow-x: auto;
+  }
+
+  /* ── reusable callout patterns (use in MDX as <div class="callout">) ─ */
+  .topic-body :global(.callout) {
+    margin: 1.5rem 0;                      /* my-6 */
+    padding: 1rem;                         /* p-4 */
+    background: hsl(var(--surface-lowest));
+    border-left: 4px solid hsl(var(--primary));
+    border-radius: var(--radius);
+  }
+  .topic-body :global(.callout-note) {
+    border-left-width: 2px;
+    border-left-color: hsl(var(--tertiary-soft));
+    padding: 1.5rem;
+  }
+  .topic-body :global(.callout-warning) {
+    border-left-width: 2px;
+    border-left-color: hsl(var(--destructive));
+    padding: 1.5rem;
+  }
+  .topic-body :global(.callout p:last-child) { margin-bottom: 0; }
+
+  /* eyebrow label used for inline section tags */
+  .topic-body :global(.eyebrow) {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;                    /* text-xs */
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: hsl(var(--primary));
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  @media (max-width: 900px) {
+    .topic-shell { flex-direction: column; }
+    .topic-container { padding: var(--sp-6) var(--sp-4); }
+  }
+</style>

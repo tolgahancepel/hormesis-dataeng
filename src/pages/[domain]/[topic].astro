@@ -1,0 +1,48 @@
+---
+import TopicLayout from '@layouts/TopicLayout.astro';
+import { findTopic, topicNeighbors, domains } from '@data/domains';
+import { getCollection, render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('topics');
+  // map of "<domain>/<topic>" → entry, for quick lookup
+  const byKey = new Map<string, CollectionEntry<'topics'>>();
+  for (const e of entries) {
+    byKey.set(e.id.replace(/\.mdx$/, ''), e);
+  }
+  const paths: Array<{
+    params: { domain: string; topic: string };
+    props: { entry: CollectionEntry<'topics'> };
+  }> = [];
+  for (const d of domains) {
+    for (const t of d.topics) {
+      const key = `${d.slug}/${t.slug}`;
+      const entry = byKey.get(key);
+      if (entry) {
+        paths.push({ params: { domain: d.slug, topic: t.slug }, props: { entry } });
+      }
+    }
+  }
+  return paths;
+}
+
+const { domain: domainSlug, topic: topicSlug } = Astro.params;
+const found = findTopic(domainSlug!, topicSlug!);
+if (!found) return Astro.redirect('/404');
+const { domain, topic } = found;
+
+const { entry } = Astro.props as { entry: CollectionEntry<'topics'> };
+const { Content, headings } = await render(entry);
+const { prev, next } = topicNeighbors(domain.slug, topic.slug);
+---
+<TopicLayout
+  domain={domain}
+  topic={topic}
+  headings={headings}
+  prev={prev}
+  next={next}
+  status={entry.data.status}
+>
+  <Content />
+</TopicLayout>

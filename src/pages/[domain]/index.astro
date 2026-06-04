@@ -1,0 +1,152 @@
+---
+import DomainLayout from '@layouts/DomainLayout.astro';
+import { domains, tiers, findDomain } from '@data/domains';
+import { path } from '@utils/url';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  return domains.map((d) => ({ params: { domain: d.slug } }));
+}
+
+const { domain: domainSlug } = Astro.params;
+const domain = findDomain(domainSlug!);
+if (!domain) {
+  return Astro.redirect('/404');
+}
+
+const allTopics = await getCollection('topics');
+const writtenStatus = new Map<string, 'stub' | 'draft' | 'complete'>();
+for (const entry of allTopics) {
+  if (entry.data.domain === domain.slug) {
+    writtenStatus.set(entry.id.split('/').pop()!.replace(/\.mdx$/, ''), entry.data.status);
+  }
+}
+
+const tier = tiers[domain.tier];
+---
+<DomainLayout
+  domain={domain}
+  title={domain.title}
+  description={domain.tagline}
+>
+  <header class="domain-header">
+    <p class="eyebrow">Tier {domain.tier} · {tier.label}</p>
+    <h1>{domain.title}</h1>
+    <p class="lead">{domain.tagline}</p>
+    <p class="domain-desc">{domain.description}</p>
+  </header>
+
+  <section class="topic-index" aria-label="Topics in this domain">
+    <h2>Topics</h2>
+    <ol class="topic-list">
+      {domain.topics.map((t, i) => {
+        const status = writtenStatus.get(t.slug) ?? 'stub';
+        return (
+          <li>
+            <a href={path(`/${domain.slug}/${t.slug}/`)} class="topic-row">
+              <span class="topic-row-num">{String(i + 1).padStart(2, '0')}</span>
+              <span class="topic-row-body">
+                <span class="topic-row-title">{t.title}</span>
+                <span class="topic-row-summary">{t.summary}</span>
+              </span>
+              <span class={`topic-row-status status-${status}`}>{status}</span>
+            </a>
+          </li>
+        );
+      })}
+    </ol>
+  </section>
+</DomainLayout>
+
+<style>
+  .domain-header {
+    margin-bottom: var(--sp-10);
+    padding-bottom: var(--sp-6);
+    border-bottom: 1px solid hsl(var(--border));
+    max-width: var(--content-width);
+  }
+  .domain-header h1 {
+    margin: var(--sp-3) 0 var(--sp-3);
+  }
+  .domain-header .lead {
+    margin: 0 0 var(--sp-5);
+  }
+  .domain-desc {
+    color: hsl(var(--muted-foreground));
+    line-height: 1.65;
+    margin: 0;
+    font-family: var(--font-sans);
+  }
+  .topic-index h2 {
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    margin: 0 0 var(--sp-3);
+    color: hsl(var(--muted-foreground));
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .topic-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: 1px solid hsl(var(--border));
+  }
+  .topic-list li { margin: 0; }
+  .topic-row {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: var(--sp-4);
+    align-items: baseline;
+    padding: var(--sp-5) var(--sp-3);
+    border-bottom: 1px solid hsl(var(--border));
+    text-decoration: none;
+    color: hsl(var(--foreground));
+    transition: background var(--t-fast);
+  }
+  .topic-row:hover {
+    background: hsl(var(--muted));
+    text-decoration: none;
+  }
+  .topic-row:hover .topic-row-title { color: hsl(var(--primary)); }
+  .topic-row:hover .topic-row-num { color: hsl(var(--primary)); }
+  .topic-row-num {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: hsl(var(--muted-foreground) / 0.7);
+    font-variant-numeric: tabular-nums;
+  }
+  .topic-row-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+  .topic-row-title {
+    font-family: var(--font-headline);
+    font-weight: 700;
+    font-size: var(--fs-xl);
+    color: hsl(var(--foreground));
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    transition: color var(--t-fast);
+  }
+  .topic-row-summary {
+    font-family: var(--font-sans);
+    color: hsl(var(--muted-foreground));
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+  }
+  .topic-row-status {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: hsl(var(--muted-foreground) / 0.75);
+    padding: 2px 8px;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    align-self: center;
+  }
+  .status-complete { color: hsl(var(--primary)); border-color: hsl(var(--primary)); }
+  .status-draft    { color: hsl(var(--muted-foreground)); }
+</style>
