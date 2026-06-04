@@ -5,42 +5,117 @@ interface Props {
   headings: MarkdownHeading[];
 }
 const { headings } = Astro.props;
-const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const items = headings.filter((h) => h.depth === 2);
 ---
 {items.length > 0 && (
   <aside class="toc" aria-label="On this page">
-    <p class="toc-title">On this page</p>
-    <ol>
-      {items.map((h) => (
-        <li class={`toc-depth-${h.depth}`}>
-          <a href={`#${h.slug}`}>{h.text}</a>
-        </li>
-      ))}
-    </ol>
+    <button
+      id="toc-toggle"
+      type="button"
+      class="toc-toggle"
+      aria-label="Collapse table of contents"
+      aria-controls="toc-inner"
+    >
+      <svg class="icon icon-collapse" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m9 18 6-6-6-6"/>
+      </svg>
+      <svg class="icon icon-expand" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </button>
+
+    <div id="toc-inner" class="toc-inner">
+      <p class="toc-title">On this page</p>
+      <ol>
+        {items.map((h) => (
+          <li class={`toc-depth-${h.depth}`}>
+            <a href={`#${h.slug}`}>{h.text}</a>
+          </li>
+        ))}
+      </ol>
+    </div>
   </aside>
 )}
 
+<script is:inline>
+  (function () {
+    var btn = document.getElementById('toc-toggle');
+    if (!btn) return;
+    function syncLabel() {
+      var collapsed = document.documentElement.classList.contains('toc-collapsed');
+      btn.setAttribute('aria-label', collapsed ? 'Expand table of contents' : 'Collapse table of contents');
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+    syncLabel();
+    btn.addEventListener('click', function () {
+      var collapsed = document.documentElement.classList.toggle('toc-collapsed');
+      try { localStorage.setItem('toc-collapsed', String(collapsed)); } catch (_) {}
+      syncLabel();
+    });
+  })();
+</script>
+
 <style>
   .toc {
-    position: sticky;
-    top: 96px;
-    align-self: start;
-    width: 220px;
+    position: relative;
+    width: 200px;
     flex-shrink: 0;
-    padding: var(--sp-2) 0 var(--sp-4) var(--sp-5);
-    border-left: 1px solid hsl(var(--border));
-    font-family: var(--font-sans);
-    font-size: var(--fs-sm);
-    max-height: calc(100vh - 120px);
-    overflow-y: auto;
+    transition: width var(--t-base);
   }
+  .toc-inner {
+    position: sticky;
+    top: 80px;
+    padding: var(--sp-6) var(--sp-3) var(--sp-6) var(--sp-5);
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    border-left: 1px solid hsl(var(--border) / 0.6);
+    transition: opacity var(--t-fast);
+  }
+
+  /* ── toggle button ─────────────────────── */
+  .toc-toggle {
+    position: absolute;
+    top: var(--sp-4);
+    left: calc(-1 * var(--sp-8));
+    z-index: 10;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius);
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .toc-toggle:hover {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+  .toc-toggle .icon-expand { display: none; }
+  :global(html.toc-collapsed) .toc-toggle .icon-collapse { display: none; }
+  :global(html.toc-collapsed) .toc-toggle .icon-expand { display: inline-block; }
+
+  /* ── collapsed state ─────────────────────── */
+  :global(html.toc-collapsed) .toc {
+    width: 0;
+  }
+  :global(html.toc-collapsed) .toc-inner {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ── compact content ─────────────────────── */
   .toc-title {
-    font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;          /* 10px */
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: hsl(var(--muted-foreground) / 0.75);
+    letter-spacing: 0.18em;
+    color: hsl(var(--primary));
     font-weight: 700;
-    margin: 0 0 var(--sp-3) 0;
+    margin: 0 0 var(--sp-3);
   }
   .toc ol {
     list-style: none;
@@ -48,18 +123,34 @@ const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--sp-2);
+    gap: 4px;
   }
-  .toc li { margin: 0; line-height: 1.4; }
-  .toc-depth-3 { padding-left: var(--sp-4); }
+  .toc li {
+    margin: 0;
+    line-height: 1.35;
+  }
+  .toc-depth-3 a { padding-left: var(--sp-4); }
   .toc a {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;           /* 12px — very compact */
     color: hsl(var(--muted-foreground));
     text-decoration: none;
-    padding-left: var(--sp-2);
-    margin-left: calc(-1 * var(--sp-2));
-    transition: color var(--t-fast);
+    padding: 2px 0 2px var(--sp-2);
+    border-left: 2px solid transparent;
+    margin-left: -2px;
+    transition: color var(--t-fast), border-color var(--t-fast);
   }
-  .toc a:hover { color: hsl(var(--primary)); text-decoration: none; }
+  .toc a:hover {
+    color: hsl(var(--primary));
+    border-left-color: hsl(var(--primary) / 0.5);
+    text-decoration: none;
+  }
+  .toc-depth-3 a {
+    font-size: 0.7rem;             /* 11.2px */
+    color: hsl(var(--muted-foreground) / 0.85);
+  }
+
   @media (max-width: 1100px) {
     .toc { display: none; }
   }

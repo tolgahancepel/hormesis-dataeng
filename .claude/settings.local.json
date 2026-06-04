@@ -8,7 +8,8 @@
       "Bash(node scripts/generate-stubs.mjs)",
       "Bash(npm run *)",
       "Bash(curl *)",
-      "Bash(grep -oE '--[a-z0-9-]+:[^;}]+' /tmp/ccg-2.css)"
+      "Bash(grep -oE '--[a-z0-9-]+:[^;}]+' /tmp/ccg-2.css)",
+      "Bash(xargs -I {} wc -l {})"
     ]
   }
 }
