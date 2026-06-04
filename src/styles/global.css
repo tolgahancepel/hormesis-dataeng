@@ -262,6 +262,32 @@ pre {
 }
 pre code { background: transparent; padding: 0; border: 0; }
 
+/* ── Shiki dark-theme switch ────────────────────────────────
+   Shiki emits light syntax colors inline and dark ones as CSS
+   variables (--shiki-dark, etc.). These rules apply the dark
+   variables when the user toggles dark mode, and as a fallback
+   when the OS prefers dark and no explicit theme is set.
+   ──────────────────────────────────────────────────────────── */
+[data-theme='dark'] .astro-code,
+[data-theme='dark'] .astro-code span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .astro-code,
+  :root:not([data-theme='light']) .astro-code span {
+    color: var(--shiki-dark) !important;
+    background-color: var(--shiki-dark-bg) !important;
+    font-style: var(--shiki-dark-font-style) !important;
+    font-weight: var(--shiki-dark-font-weight) !important;
+    text-decoration: var(--shiki-dark-text-decoration) !important;
+  }
+}
+
 kbd {
   background: hsl(var(--surface-low));
   border: 1px solid hsl(var(--border));
